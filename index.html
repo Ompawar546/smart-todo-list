@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Todo List</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #3a86ff;
+        }
+        
+        .input-section {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        
+        #task-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px 0 0 4px;
+            font-size: 16px;
+        }
+        
+        .add-btn {
+            padding: 8px 15px;
+            background-color: #3a86ff;
+            color: white;
+            border: none;
+            border-radius: 0 4px 4px 0;
+            cursor: pointer;
+        }
+        
+        .task-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background-color: #f8f8f8;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            border-left: 3px solid #3a86ff;
+        }
+        
+        .task-text {
+            flex: 1;
+            margin-right: 10px;
+        }
+        
+        .completed {
+            text-decoration: line-through;
+            opacity: 0.7;
+        }
+        
+        .task-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .btn {
+            padding: 5px 8px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .complete-btn {
+            background-color: #4caf50;
+            color: white;
+        }
+        
+        .delete-btn {
+            background-color: #f44336;
+            color: white;
+        }
+        
+        .task-steps {
+            background-color: #e6f1ff;
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 8px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .show-steps-btn {
+            background-color: #7b68ee;
+            color: white;
+        }
+        
+        .steps-list {
+            padding-left: 20px;
+        }
+        
+        .loading {
+            font-style: italic;
+            color: #5e3a3a;
+            padding: 5px;
+        }
+        
+        .error-message {
+            color: #f44336;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Simple Todo List by <a href="https://portfolio-frontend-dlq3.onrender.com">Om Pawar</a></h1>
+        <div class="input-section">
+            <input type="text" id="task-input" placeholder="Add a new task...">
+            <button class="add-btn">Add</button>
+        </div>
+        
+        <div class="tasks-container"></div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const taskInput = document.getElementById('task-input');
+            const addBtn = document.querySelector('.add-btn');
+            const tasksContainer = document.querySelector('.tasks-container');
+            
+            
+            const API_KEY = 'AIzaSyDP9IzQNmas2c9pkO7lVHIblwrWDveE4TM';
+            const API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent';
+            
+            
+            let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+            
+            
+            renderTasks();
+            
+
+            addBtn.addEventListener('click', addTask);
+            taskInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    addTask();
+                }
+            });
+            
+           
+            function addTask() {
+                const taskText = taskInput.value.trim();
+                if (taskText !== '') {
+                    const newTask = {
+                        id: Date.now(),
+                        text: taskText,
+                        completed: false,
+                        steps: []
+                    };
+                    
+                    tasks.push(newTask);
+                    saveTasks();
+                    renderTasks();
+                    taskInput.value = '';
+                    taskInput.focus();
+                }
+            }
+            
+            
+            function renderTasks() {
+                tasksContainer.innerHTML = '';
+                
+                if (tasks.length === 0) {
+                    tasksContainer.innerHTML = '<p style="text-align: center; color: #888;">No tasks yet. Add one above!</p>';
+                    return;
+                }
+                
+                tasks.forEach(task => {
+                    const taskElement = document.createElement('div');
+                    taskElement.className = 'task-item';
+                    taskElement.dataset.id = task.id;
+                    
+                    const taskTextElement = document.createElement('div');
+                    taskTextElement.className = `task-text ${task.completed ? 'completed' : ''}`;
+                    taskTextElement.textContent = task.text;
+                    
+                    const taskActions = document.createElement('div');
+                    taskActions.className = 'task-actions';
+                    
+                    // Complete button
+                    const completeBtn = document.createElement('button');
+                    completeBtn.className = 'btn complete-btn';
+                    completeBtn.textContent = task.completed ? 'Undo' : 'Done';
+                    completeBtn.addEventListener('click', () => toggleComplete(task.id));
+                    
+                    // Delete button
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'btn delete-btn';
+                    deleteBtn.textContent = 'Delete';
+                    deleteBtn.addEventListener('click', () => deleteTask(task.id));
+                    
+                    // Generate steps button
+                    const stepsBtn = document.createElement('button');
+                    stepsBtn.className = 'btn show-steps-btn';
+                    stepsBtn.textContent = task.steps.length > 0 ? 'Steps' : 'Get Steps';
+                    stepsBtn.addEventListener('click', () => {
+                        if (task.steps.length > 0) {
+                            toggleSteps(taskElement);
+                        } else {
+                            generateSteps(task.id, taskElement);
+                        }
+                    });
+                    
+                    taskActions.appendChild(completeBtn);
+                    taskActions.appendChild(stepsBtn);
+                    taskActions.appendChild(deleteBtn);
+                    
+                    taskElement.appendChild(taskTextElement);
+                    taskElement.appendChild(taskActions);
+                    
+                    // Add steps section if available
+                    if (task.steps && task.steps.length > 0) {
+                        const stepsElement = document.createElement('div');
+                        stepsElement.className = 'task-steps';
+                        
+                        const stepsList = document.createElement('ol');
+                        stepsList.className = 'steps-list';
+                        
+                        task.steps.forEach(step => {
+                            const stepItem = document.createElement('li');
+                            stepItem.textContent = step;
+                            stepsList.appendChild(stepItem);
+                        });
+                        
+                        stepsElement.appendChild(stepsList);
+                        taskElement.appendChild(stepsElement);
+                    }
+                    
+                    tasksContainer.appendChild(taskElement);
+                });
+            }
+            
+            // Toggle task completion
+            function toggleComplete(id) {
+                tasks = tasks.map(task => {
+                    if (task.id === id) {
+                        return { ...task, completed: !task.completed };
+                    }
+                    return task;
+                });
+                
+                saveTasks();
+                renderTasks();
+            }
+            
+            // Delete task
+            function deleteTask(id) {
+                tasks = tasks.filter(task => task.id !== id);
+                saveTasks();
+                renderTasks();
+            }
+            
+            // Toggle steps visibility
+            function toggleSteps(taskElement) {
+                const stepsElement = taskElement.querySelector('.task-steps');
+                const stepsBtn = taskElement.querySelector('.show-steps-btn');
+                
+                if (stepsElement.style.display === 'block') {
+                    stepsElement.style.display = 'none';
+                    stepsBtn.textContent = 'Steps';
+                } else {
+                    stepsElement.style.display = 'block';
+                    stepsBtn.textContent = 'Hide';
+                }
+            }
+            
+            // Generate steps for a task using Gemini API
+            async function generateSteps(id, taskElement) {
+                const task = tasks.find(task => task.id === id);
+                if (!task) return;
+                
+                // Create loading indicator
+                const loadingEl = document.createElement('div');
+                loadingEl.className = 'loading';
+                loadingEl.textContent = 'Generating steps...';
+                taskElement.appendChild(loadingEl);
+                
+                try {
+                    
+                    const steps = await callGeminiAPI(task.text);
+                    
+                    
+                    tasks = tasks.map(t => {
+                        if (t.id === id) {
+                            return { ...t, steps: steps };
+                        }
+                        return t;
+                    });
+                    
+                    
+                    saveTasks();
+                    
+                   
+                    taskElement.removeChild(loadingEl);
+                    
+                   
+                    renderTasks();
+                    
+                    
+                    const newTaskElement = document.querySelector(`.task-item[data-id="${id}"]`);
+                    if (newTaskElement) {
+                        const stepsElement = newTaskElement.querySelector('.task-steps');
+                        if (stepsElement) {
+                            stepsElement.style.display = 'block';
+                            const stepsBtn = newTaskElement.querySelector('.show-steps-btn');
+                            if (stepsBtn) stepsBtn.textContent = 'Hide';
+                        }
+                    }
+                    
+                } catch (error) {
+                  
+                    taskElement.removeChild(loadingEl);
+                    
+                    
+                    const errorEl = document.createElement('div');
+                    errorEl.className = 'error-message';
+                    errorEl.textContent = 'Error generating steps. Please try again.';
+                    taskElement.appendChild(errorEl);
+                    
+                    
+                    setTimeout(() => {
+                        if (taskElement.contains(errorEl)) {
+                            taskElement.removeChild(errorEl);
+                        }
+                    }, 3000);
+                }
+            }
+            
+
+            async function callGeminiAPI(taskText) {
+                try {
+                    const response = await fetch(`${API_URL}?key=${API_KEY}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            contents: [{
+                                role: "user",
+                                parts: [{
+                                    text: `Generate a step-by-step guide to complete this task: "${taskText}". Provide 3-5 clear, actionable steps that are concise and practical. Format each step as a single sentence.`
+                                }]
+                            }]
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('API request failed');
+                    }
+                    
+                    const data = await response.json();
+                    const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                    
+                    if (!responseText) {
+                        throw new Error('Invalid response from API');
+                    }
+                    
+                    
+                    let steps = [];
+                    
+                    
+                    const numberedSteps = responseText.match(/\d+\.\s*([^\n]+)/g);
+                    
+                    if (numberedSteps && numberedSteps.length > 0) {
+                        steps = numberedSteps.map(step => step.replace(/^\d+\.\s*/, '').trim());
+                    } else {
+                       
+                        steps = responseText.split('\n')
+                            .map(line => line.trim())
+                            .filter(line => line.length > 0 && !line.toLowerCase().includes('step') && !line.match(/^[:#\-*]/));
+                    }
+                    
+                    
+                    if (steps.length === 0) {
+                        steps = ["Break the task into smaller parts", 
+                                 "Gather necessary resources", 
+                                 "Start with the most important aspect", 
+                                 "Take regular breaks to maintain focus"];
+                    }
+                    
+                    
+                    return steps.slice(0, 5);
+                    
+                } catch (error) {
+                    console.error('Error calling API:', error);
+                    throw error;
+                }
+            }
+            
+            
+            function saveTasks() {
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+            }
+        });
+    </script>
+</body>
+</html>
