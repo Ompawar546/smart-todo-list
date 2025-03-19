@@ -219,7 +219,7 @@
                     // Generate steps button
                     const stepsBtn = document.createElement('button');
                     stepsBtn.className = 'btn show-steps-btn';
-                    stepsBtn.textContent = task.steps.length > 0 ? 'Steps' : 'Get Steps';
+                    stepsBtn.textContent = "Generate Steps";
                     stepsBtn.addEventListener('click', () => {
                         if (task.steps.length > 0) {
                             toggleSteps(taskElement);
